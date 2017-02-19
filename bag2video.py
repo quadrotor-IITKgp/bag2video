@@ -26,14 +26,20 @@ def get_info(bag, topic=None, start_time=rospy.Time(0), stop_time=rospy.Time(sys
 
     # read the first message to get the image size
     msg = bag.read_messages(topics=topic).next()[1]
-    size = (msg.width, msg.height)
+    np_arr = np.fromstring(msg.data, np.uint8)
+    image_np = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
+    height, width = image_np.shape[:2]
+    size = (width, height)
 
     # now read the rest of the messages for the rates
     iterator = bag.read_messages(topics=topic, start_time=start_time, end_time=stop_time)#, raw=True)
     for _, msg, _ in iterator:
         time = msg.header.stamp
         times.append(time.to_sec())
-        size = (msg.width, msg.height)
+        np_arr = np.fromstring(msg.data, np.uint8)
+        image_np = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
+        height, width = image_np.shape[:2]
+        size = (width, height)
     diffs = 1/np.diff(times)
     return np.median(diffs), min(diffs), max(diffs), size, times
 
@@ -50,7 +56,9 @@ def write_frames(bag, writer, total, topic=None, nframes=repeat(1), start_time=r
     iterator = bag.read_messages(topics=topic, start_time=start_time, end_time=stop_time)
     for (topic, msg, time), reps in izip(iterator, nframes):
         print '\rWriting frame %s of %s at time %s' % (count, total, time),
-        img = np.asarray(bridge.imgmsg_to_cv(msg, 'bgr8'))
+        # img = np.asarray(bridge.imgmsg_to_cv(msg, 'bgr8'))
+        np_arr = np.fromstring(msg.data, np.uint8)
+        img = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
         for rep in range(reps):
             writer.write(img)
         imshow('win', img)
